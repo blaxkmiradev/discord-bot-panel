@@ -1,31 +1,22 @@
 const express = require('express');
 const router = express.Router();
-const fs = require('fs');
 const path = require('path');
-const { requireAuth } = require('../middleware/auth');
+const db = require('../database');
 const config = require('../config');
 
-// Load panel data
-function loadPanelData() {
-  try {
-    if (fs.existsSync(config.dataFile)) {
-      return JSON.parse(fs.readFileSync(config.dataFile, 'utf8'));
-    }
-  } catch (e) {}
-  return { users: [], serverLimits: { defaultRam: 512, defaultCpu: 100, maxServersPerUser: 5 } };
-}
-
-function savePanelData(data) {
-  fs.writeFileSync(config.dataFile, JSON.stringify(data, null, 2));
-}
-
 // Settings page
-router.get('/', requireAuth, (req, res) => {
+router.get('/', (req, res) => {
   const cfg = config.loadConfig();
-  const panelData = loadPanelData();
+  const users = db.getAllUsers();
+  const defaultRam = db.getSetting('default_ram') || 512;
+  const defaultCpu = db.getSetting('default_cpu') || 100;
+  const maxServersPerUser = db.getSetting('max_servers_per_user') || 5;
   res.render('settings', {
     cfg,
-    panelData,
+    users,
+    defaultRam,
+    defaultCpu,
+    maxServersPerUser,
     user: req.session.user,
     flash: req.query.saved ? 'Settings saved!' : null,
     error: null,
@@ -33,97 +24,82 @@ router.get('/', requireAuth, (req, res) => {
 });
 
 // Save general settings
-router.post('/general', requireAuth, (req, res) => {
+router.post('/general', (req, res) => {
   const { siteName, logoUrl } = req.body;
-  const cfg = config.loadConfig();
-  cfg.siteName = siteName || 'Bot Panel';
-  cfg.logoUrl = logoUrl || '';
-  config.saveConfig(cfg);
+  config.saveConfig({ siteName: siteName || 'Bot Panel', logoUrl: logoUrl || '' });
   res.redirect('/settings?saved=1');
 });
 
-// Change admin username/password
-router.post('/credentials', requireAuth, (req, res) => {
+// Change admin credentials
+router.post('/credentials', (req, res) => {
   const { currentPass, newUser, newPass, confirmPass } = req.body;
   const cfg = config.loadConfig();
-  const panelData = loadPanelData();
+  const users = db.getAllUsers();
+  const defaultRam = db.getSetting('default_ram') || 512;
+  const defaultCpu = db.getSetting('default_cpu') || 100;
+  const maxServersPerUser = db.getSetting('max_servers_per_user') || 5;
 
-  if (currentPass !== cfg.adminPass) {
-    return res.render('settings', { cfg, panelData, user: req.session.user, flash: null, error: 'Current password is incorrect' });
+  const valid = db.verifyPassword(req.session.user, currentPass);
+  if (!valid) {
+    return res.render('settings', { cfg, users, defaultRam, defaultCpu, maxServersPerUser, user: req.session.user, flash: null, error: 'Current password is incorrect' });
   }
   if (newPass && newPass !== confirmPass) {
-    return res.render('settings', { cfg, panelData, user: req.session.user, flash: null, error: 'New passwords do not match' });
+    return res.render('settings', { cfg, users, defaultRam, defaultCpu, maxServersPerUser, user: req.session.user, flash: null, error: 'New passwords do not match' });
   }
 
-  if (newUser) cfg.adminUser = newUser;
-  if (newPass) cfg.adminPass = newPass;
-  config.saveConfig(cfg);
-
-  req.session.user = cfg.adminUser;
+  db.updateAdminCredentials(newUser || null, newPass || null);
+  if (newUser) req.session.user = newUser;
   res.redirect('/settings?saved=1');
 });
 
 // Update server limits
-router.post('/limits', requireAuth, (req, res) => {
+router.post('/limits', (req, res) => {
   const { defaultRam, defaultCpu, maxServersPerUser } = req.body;
-  const panelData = loadPanelData();
-  panelData.serverLimits = {
-    defaultRam: parseInt(defaultRam) || 512,
-    defaultCpu: parseInt(defaultCpu) || 100,
-    maxServersPerUser: parseInt(maxServersPerUser) || 5,
-  };
-  savePanelData(panelData);
+  db.setSetting('default_ram', parseInt(defaultRam) || 512);
+  db.setSetting('default_cpu', parseInt(defaultCpu) || 100);
+  db.setSetting('max_servers_per_user', parseInt(maxServersPerUser) || 5);
   res.redirect('/settings?saved=1');
 });
 
 // Create sub-user
-router.post('/users/create', requireAuth, (req, res) => {
+router.post('/users/create', (req, res) => {
   const { username, password, maxServers, maxRam } = req.body;
-  const panelData = loadPanelData();
-  if (!panelData.users) panelData.users = [];
-
-  if (panelData.users.find(u => u.username === username)) {
+  const result = db.createUser(username, password, parseInt(maxServers) || 3, parseInt(maxRam) || 512);
+  if (!result.success) {
     const cfg = config.loadConfig();
-    return res.render('settings', { cfg, panelData, user: req.session.user, flash: null, error: 'Username already exists' });
+    const users = db.getAllUsers();
+    const defaultRam = db.getSetting('default_ram') || 512;
+    const defaultCpu = db.getSetting('default_cpu') || 100;
+    const maxServersPerUser = db.getSetting('max_servers_per_user') || 5;
+    return res.render('settings', { cfg, users, defaultRam, defaultCpu, maxServersPerUser, user: req.session.user, flash: null, error: result.message });
   }
-
-  panelData.users.push({
-    username,
-    password,
-    maxServers: parseInt(maxServers) || 3,
-    maxRam: parseInt(maxRam) || 512,
-    servers: [],
-    createdAt: new Date().toISOString(),
-  });
-  savePanelData(panelData);
   res.redirect('/settings?saved=1');
 });
 
 // Delete sub-user
-router.post('/users/:username/delete', requireAuth, (req, res) => {
-  const panelData = loadPanelData();
-  panelData.users = (panelData.users || []).filter(u => u.username !== req.params.username);
-  savePanelData(panelData);
+router.post('/users/:username/delete', (req, res) => {
+  db.deleteUser(req.params.username);
   res.json({ success: true });
 });
 
 // Logo upload
-router.post('/logo', requireAuth, (req, res) => {
+router.post('/logo', (req, res) => {
   if (!req.files || !req.files.logo) return res.redirect('/settings');
   const file = req.files.logo;
   const ext = path.extname(file.name).toLowerCase();
   const allowed = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp'];
   if (!allowed.includes(ext)) {
     const cfg = config.loadConfig();
-    const panelData = loadPanelData();
-    return res.render('settings', { cfg, panelData, user: req.session.user, flash: null, error: 'Invalid file type' });
+    const users = db.getAllUsers();
+    const defaultRam = db.getSetting('default_ram') || 512;
+    const defaultCpu = db.getSetting('default_cpu') || 100;
+    const maxServersPerUser = db.getSetting('max_servers_per_user') || 5;
+    return res.render('settings', { cfg, users, defaultRam, defaultCpu, maxServersPerUser, user: req.session.user, flash: null, error: 'Invalid file type' });
   }
   const dest = path.join(__dirname, '../public/logo' + ext);
   file.mv(dest, (err) => {
     if (err) return res.redirect('/settings');
-    const cfg = config.loadConfig();
-    cfg.logoUrl = '/logo' + ext;
-    config.saveConfig(cfg);
+    config.saveConfig({ logoUrl: '/logo' + ext });
     res.redirect('/settings?saved=1');
   });
 });

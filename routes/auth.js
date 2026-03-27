@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const db = require('../database');
 const config = require('../config');
 
 router.get('/login', (req, res) => {
@@ -11,9 +12,12 @@ router.get('/login', (req, res) => {
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
   const cfg = config.loadConfig();
-  if (username === cfg.adminUser && password === cfg.adminPass) {
+  const valid = db.verifyPassword(username, password);
+  if (valid) {
+    const user = db.getUserByUsername(username);
     req.session.authenticated = true;
     req.session.user = username;
+    req.session.role = user.role;
     return res.redirect('/');
   }
   res.render('login', { error: 'Invalid username or password', cfg });

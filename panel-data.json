@@ -1,5 +1,14 @@
 {
-  "users": [],
+  "users": [
+    {
+      "username": "admin1",
+      "password": "1234",
+      "maxServers": 3,
+      "maxRam": 512,
+      "servers": [],
+      "createdAt": "2026-03-27T06:53:59.950Z"
+    }
+  ],
   "serverLimits": {
     "defaultRam": 512,
     "defaultCpu": 100,
