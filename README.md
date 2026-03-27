@@ -13,14 +13,17 @@
 
 ## 📸 Screenshots
 
-### Dashboard with Real-Time Stats
-![Dashboard](https://via.placeholder.com/800x450/1a1d23/5865F2?text=Dashboard+with+Live+CPU%2FRAM+Monitoring)
+### Login Page
+![Login Page](screenshots/login.png)
 
-### Server Management with Live Logs
-![Server Management](https://via.placeholder.com/800x450/1a1d23/5865F2?text=Server+Detail+with+Real-Time+Logs)
+### Dashboard with Real-Time Stats
+![Dashboard](screenshots/dashboard.png)
 
 ### Settings Panel
-![Settings](https://via.placeholder.com/800x450/1a1d23/5865F2?text=Settings+%26+User+Management)
+![Settings](screenshots/settings.png)
+
+### File Manager
+![File Manager](screenshots/file-manager.png)
 
 ---
 
