@@ -1,0 +1,230 @@
+<%
+  const title = 'Dashboard';
+  const activePage = 'dashboard';
+  const body = `
+<div class="page-container">
+  
+  <!-- System Stats Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="stat-card card bg-primary text-white">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="stat-label small opacity-75">CPU Usage</div>
+              <div class="stat-value h4 mb-0" id="statCpu">--%</div>
+            </div>
+            <i class="bi bi-cpu stat-icon"></i>
+          </div>
+          <div class="progress mt-2" style="height:4px">
+            <div class="progress-bar bg-white" id="barCpu" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card card bg-success text-white">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="stat-label small opacity-75">RAM Used</div>
+              <div class="stat-value h4 mb-0" id="statMem">-- GB</div>
+            </div>
+            <i class="bi bi-memory stat-icon"></i>
+          </div>
+          <div class="progress mt-2" style="height:4px">
+            <div class="progress-bar bg-white" id="barMem" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card card bg-info text-white">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="stat-label small opacity-75">Servers</div>
+              <div class="stat-value h4 mb-0" id="statServers">${servers.length}</div>
+            </div>
+            <i class="bi bi-robot stat-icon"></i>
+          </div>
+          <div class="stat-sub small mt-1 opacity-75" id="statRunning">0 running</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card card bg-warning text-dark">
+        <div class="card-body py-3 px-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="stat-label small opacity-75">Uptime</div>
+              <div class="stat-value h4 mb-0" id="statUptime">--</div>
+            </div>
+            <i class="bi bi-clock-history stat-icon"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Server List -->
+  <div class="page-header d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h4 class="mb-0 fw-bold"><i class="bi bi-grid-1x2-fill me-2 text-primary"></i>Your Bot Servers</h4>
+      <p class="text-muted mb-0 small">${servers.length} server${servers.length !== 1 ? 's' : ''} hosted</p>
+    </div>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
+      <i class="bi bi-plus-lg me-1"></i>New Bot
+    </button>
+  </div>
+
+  ${servers.length === 0 ? `
+  <div class="empty-state text-center py-5">
+    <div class="empty-icon mb-3"><i class="bi bi-robot"></i></div>
+    <h5 class="fw-semibold">No bot servers yet</h5>
+    <p class="text-muted">Create your first bot server to get started.</p>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createModal">
+      <i class="bi bi-plus-lg me-1"></i>Create Bot Server
+    </button>
+  </div>
+  ` : `
+  <div class="row g-3">
+    ${servers.map(s => `
+    <div class="col-12 col-sm-6 col-xl-4">
+      <div class="server-card card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <div class="server-icon">
+              <i class="bi bi-discord"></i>
+            </div>
+            <span class="badge status-badge ${s.status === 'running' ? 'bg-success' : 'bg-secondary'}">
+              <i class="bi ${s.status === 'running' ? 'bi-circle-fill pulse' : 'bi-circle'} me-1" style="font-size:0.6rem"></i>
+              ${s.status === 'running' ? 'Online' : 'Offline'}
+            </span>
+          </div>
+          <h6 class="fw-bold mb-1">${s.name}</h6>
+          <p class="text-muted small mb-2">
+            <code>${s.entryPoint}</code>
+            ${s.pid ? ` &bull; PID: ${s.pid}` : ''}
+          </p>
+          ${s.status === 'running' ? `
+          <div class="mb-2">
+            <div class="d-flex justify-content-between small text-muted mb-1">
+              <span><i class="bi bi-cpu me-1"></i>CPU</span>
+              <span class="server-cpu" data-id="${s.id}">--%</span>
+            </div>
+            <div class="progress" style="height:4px">
+              <div class="progress-bar bg-info" id="cpu-${s.id}" style="width:0%"></div>
+            </div>
+            <div class="d-flex justify-content-between small text-muted mb-1 mt-2">
+              <span><i class="bi bi-memory me-1"></i>RAM</span>
+              <span class="server-mem" data-id="${s.id}">-- MB</span>
+            </div>
+            <div class="progress" style="height:4px">
+              <div class="progress-bar bg-warning" id="mem-${s.id}" style="width:0%"></div>
+            </div>
+          </div>
+          ` : ''}
+          <div class="d-flex gap-2 flex-wrap mt-2">
+            <a href="/servers/${s.id}" class="btn btn-sm btn-dark flex-fill">
+              <i class="bi bi-terminal me-1"></i>Manage
+            </a>
+            <button class="btn btn-sm ${s.status === 'running' ? 'btn-warning' : 'btn-success'} flex-fill"
+              onclick="quickAction('${s.id}', '${s.status === 'running' ? 'stop' : 'start'}', this)">
+              <i class="bi ${s.status === 'running' ? 'bi-stop-fill' : 'bi-play-fill'} me-1"></i>
+              ${s.status === 'running' ? 'Stop' : 'Start'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    `).join('')}
+  </div>
+  `}
+</div>
+`;
+%>
+<%- include('layout', { title, activePage, body, user, cfg, extraScripts: `
+<script>
+const socket = io();
+
+// Update system stats live
+socket.on('system-stats', (stats) => {
+  document.getElementById('statCpu').textContent = stats.cpu.toFixed(1) + '%';
+  document.getElementById('barCpu').style.width = Math.min(stats.cpu, 100) + '%';
+  
+  const memGb = (stats.memUsed / 1024).toFixed(1);
+  document.getElementById('statMem').textContent = memGb + ' GB';
+  document.getElementById('barMem').style.width = stats.memPercent + '%';
+  
+  const hrs = Math.floor(stats.uptime / 3600);
+  const mins = Math.floor((stats.uptime % 3600) / 60);
+  document.getElementById('statUptime').textContent = hrs + 'h ' + mins + 'm';
+});
+
+// Update per-server stats
+socket.on('server-status', (status) => {
+  const cpuEl = document.querySelector('.server-cpu[data-id="' + status.pid + '"], .server-cpu[data-id="' + (status.pid || '') + '"]');
+  // Find by checking all
+  document.querySelectorAll('.server-cpu').forEach(el => {
+    const id = el.dataset.id;
+    // We need to match status to server - simplified approach
+  });
+  
+  // Update progress bars by server ID lookup
+  const serverCards = document.querySelectorAll('.server-card');
+  serverCards.forEach(card => {
+    const btn = card.querySelector('button[onclick*="start"], button[onclick*="stop"]');
+    if (!btn) return;
+    const match = btn.onclick.toString().match(/quickAction\('([^']+)'|'/);
+    if (!match) return;
+    const id = match[1];
+    if (id) {
+      // This is simplified - in real implementation we'd fetch status per ID
+    }
+  });
+});
+
+// Poll for individual server stats every 2s
+setInterval(() => {
+  fetch('/api/stats')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('statServers').textContent = data.servers.length;
+      const running = data.servers.filter(s => s.status === 'running').length;
+      document.getElementById('statRunning').textContent = running + ' running';
+      
+      data.servers.forEach(s => {
+        const cpuBar = document.getElementById('cpu-' + s.id);
+        const memBar = document.getElementById('mem-' + s.id);
+        if (cpuBar) {
+          cpuBar.style.width = (s.cpu || 0) + '%';
+          const cpuText = document.querySelector('.server-cpu[data-id="' + s.id + '"]');
+          if (cpuText) cpuText.textContent = (s.cpu || 0).toFixed(1) + '%';
+        }
+        if (memBar && s.ramLimit) {
+          const memPercent = (s.mem / s.ramLimit) * 100;
+          memBar.style.width = Math.min(memPercent, 100) + '%';
+          const memText = document.querySelector('.server-mem[data-id="' + s.id + '"]');
+          if (memText) memText.textContent = (s.mem || 0).toFixed(0) + ' MB';
+        }
+      });
+    });
+}, 2000);
+
+function quickAction(id, action, btn) {
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  fetch('/servers/' + id + '/' + action, { method: 'POST' })
+    .then(r => r.json())
+    .then(d => {
+      btn.innerHTML = orig;
+      btn.disabled = false;
+      if (d.success) setTimeout(() => location.reload(), 800);
+      else alert(d.message || 'Error');
+    })
+    .catch(() => { btn.innerHTML = orig; btn.disabled = false; });
+}
+</script>
+` }) %>

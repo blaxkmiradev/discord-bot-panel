@@ -1,0 +1,102 @@
+<%
+  const title = 'Edit — ' + filePath.split('/').pop();
+  const activePage = 'files';
+  const dirPath = filePath.includes('/') ? filePath.split('/').slice(0, -1).join('/') : '';
+  const body = `
+<div class="page-container editor-page">
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+      <li class="breadcrumb-item"><a href="/servers/${serverId}">${serverName}</a></li>
+      <li class="breadcrumb-item"><a href="/files/${serverId}${dirPath ? '?path=' + encodeURIComponent(dirPath) : ''}">Files</a></li>
+      <li class="breadcrumb-item active">${filePath.split('/').pop()}</li>
+    </ol>
+  </nav>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0">
+      <i class="bi bi-code-slash me-2 text-info"></i>
+      ${filePath.split('/').pop()}
+    </h5>
+    <div class="d-flex gap-2">
+      <a href="/files/${serverId}${dirPath ? '?path=' + encodeURIComponent(dirPath) : ''}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Back
+      </a>
+      <button class="btn btn-primary btn-sm" onclick="saveFile()" id="saveBtn">
+        <i class="bi bi-save me-1"></i>Save
+      </button>
+    </div>
+  </div>
+
+  <div class="card editor-card">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2">
+      <code class="small text-info">${filePath}</code>
+      <span class="badge bg-secondary">${ext}</span>
+    </div>
+    <div class="card-body p-0">
+      <textarea id="codeEditor" class="code-editor">${content.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+    </div>
+  </div>
+
+  <div id="saveStatus" class="mt-2 text-muted small"></div>
+</div>
+`;
+%>
+
+<%- include('layout', { title, activePage, body, user, extraScripts: `
+<script>
+const SERVER_ID = '${serverId}';
+const FILE_PATH = '${filePath.replace(/'/g,"\\\\'")}';
+
+function saveFile() {
+  const content = document.getElementById('codeEditor').value;
+  const btn = document.getElementById('saveBtn');
+  const status = document.getElementById('saveStatus');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+  
+  fetch('/files/' + SERVER_ID + '/edit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filePath: FILE_PATH, content })
+  })
+  .then(r => r.json())
+  .then(d => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-save me-1"></i>Save';
+    if (d.success) {
+      status.innerHTML = '<i class="bi bi-check-circle-fill text-success me-1"></i>Saved at ' + new Date().toLocaleTimeString();
+      status.className = 'mt-2 text-success small';
+    } else {
+      status.textContent = 'Error saving file';
+      status.className = 'mt-2 text-danger small';
+    }
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-save me-1"></i>Save';
+    status.textContent = 'Network error';
+    status.className = 'mt-2 text-danger small';
+  });
+}
+
+// Ctrl+S / Cmd+S to save
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    saveFile();
+  }
+});
+
+// Tab key in textarea
+document.getElementById('codeEditor').addEventListener('keydown', function(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = this.selectionStart;
+    const end = this.selectionEnd;
+    this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
+    this.selectionStart = this.selectionEnd = start + 2;
+  }
+});
+</script>
+` }) %>

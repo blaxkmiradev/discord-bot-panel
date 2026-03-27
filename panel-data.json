@@ -1,0 +1,8 @@
+{
+  "users": [],
+  "serverLimits": {
+    "defaultRam": 512,
+    "defaultCpu": 100,
+    "maxServersPerUser": 5
+  }
+}
